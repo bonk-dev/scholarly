@@ -7,6 +7,7 @@ import requests
 import httpx
 import tempfile
 import urllib3
+from httpx import HTTPTransport
 
 from selenium import webdriver
 from selenium.webdriver.support.wait import WebDriverWait, TimeoutException
@@ -468,15 +469,19 @@ class ProxyGenerator(object):
         # self._session.headers.update(_HEADERS)
         init_kwargs.update(headers=_HEADERS)
 
-        if self._proxy_works:
-            init_kwargs["proxies"] = proxies #.get("http", None)
-            self._proxies = proxies
-            if self.proxy_mode is ProxyMode.SCRAPERAPI:
-                # SSL Certificate verification must be disabled for
-                # ScraperAPI requests to work.
-                # https://www.scraperapi.com/documentation/
-                init_kwargs["verify"] = False
-        self._session = httpx.Client(**init_kwargs)
+        temp_proxies = kwargs.get('proxies')
+        mounts = {}
+        if temp_proxies:
+            for key in temp_proxies:
+                mounts[key] = HTTPTransport(proxy=temp_proxies[key])
+
+            del kwargs['proxies']
+            kwargs['mounts'] = mounts
+
+        init_kwargs.update(mounts=mounts)
+        pr = temp_proxies['http://'] if mounts else None
+
+        self._session = httpx.Client(follow_redirects=True, proxy=pr, verify=True, headers=_HEADERS)
         self._webdriver = None
 
         return self._session
