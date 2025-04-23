@@ -485,9 +485,6 @@ class ProxyGenerator(object):
         init_kwargs.update(mounts=mounts)
         pr = temp_proxies['http://'] if mounts else None
 
-        print(pr)
-        print(init_kwargs['verify'])
-
         self._session = httpx.Client(follow_redirects=True, proxy=pr, verify=init_kwargs['verify'], headers=_HEADERS)
         self._webdriver = None
 
