@@ -189,12 +189,6 @@ class ProxyGenerator(object):
         :returns: whether or not the proxy was set up successfully
         :rtype: {bool}
         """
-        if http[:4] != "http":
-            http = "http://" + http
-        if https is None:
-            https = http
-        elif https[:5] != "https":
-            https = "https://" + https
 
         proxies = {'http://': http, 'https://': https}
         if self.proxy_mode == ProxyMode.SCRAPERAPI:
