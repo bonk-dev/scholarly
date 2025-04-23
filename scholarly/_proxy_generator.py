@@ -104,7 +104,7 @@ class ProxyGenerator(object):
             self.logger.warning("Luminati does not seem to work. Reason unknown.")
         return proxy_works
 
-    def SingleProxy(self, http=None, https=None):
+    def SingleProxy(self, http=None, https=None, verify=True):
         """
         Use proxy of your choice
 
@@ -112,6 +112,8 @@ class ProxyGenerator(object):
         :type http: string
         :param https: https proxy adress
         :type https: string
+        :param verify: whether to verify the SSL certificates
+        :type verify: bool
         :returns: whether or not the proxy was set up successfully
         :rtype: {bool}
 
@@ -121,7 +123,7 @@ class ProxyGenerator(object):
             >>> success = pg.SingleProxy(http = <http proxy adress>, https = <https proxy adress>)
         """
         self.logger.info("Enabling proxies: http=%s https=%s", http, https)
-        proxy_works = self._use_proxy(http=http, https=https)
+        proxy_works = self._use_proxy(http=http, https=https, verify=verify)
         if proxy_works:
             self.proxy_mode = ProxyMode.SINGLEPROXY
             self.logger.info("Proxy setup successfully")
@@ -159,6 +161,38 @@ class ProxyGenerator(object):
 
             return False
 
+    def _use_proxy(self, http: str, https: str = None, verify: bool = True) -> bool:
+        """Allows user to set their own proxy for the connection session.
+        Sets the proxy if it works.
+
+        :param http: the http proxy
+        :type http: str
+        :param https: the https proxy (default to the same as http)
+        :type https: str
+        :param verify: whether the SSL certificates should be verified
+        :type verify: bool
+        :returns: whether or not the proxy was set up successfully
+        :rtype: {bool}
+        """
+
+        proxies = {'http://': http, 'https://': https}
+        if self.proxy_mode == ProxyMode.SCRAPERAPI:
+            r = requests.get("http://api.scraperapi.com/account", params={'api_key': self._API_KEY}).json()
+            if "error" in r:
+                self.logger.warning(r["error"])
+                self._proxy_works = False
+            else:
+                self._proxy_works = r["requestCount"] < int(r["requestLimit"])
+                self.logger.info("Successful ScraperAPI requests %d / %d",
+                                 r["requestCount"], r["requestLimit"])
+        else:
+            self._proxy_works = self._check_proxy(proxies)
+
+        self._proxies = proxies
+        self._new_session(proxies=proxies, verify=verify)
+
+        return self._proxy_works
+
     def _refresh_tor_id(self, tor_control_port: int, password: str) -> bool:
         """Refreshes the id by using a new Tor node.
 
@@ -178,36 +212,6 @@ class ProxyGenerator(object):
             err = f"Exception {e} while refreshing TOR. Retrying..."
             self.logger.info(err)
             return (False, None)
-
-    def _use_proxy(self, http: str, https: str = None) -> bool:
-        """Allows user to set their own proxy for the connection session.
-        Sets the proxy if it works.
-
-        :param http: the http proxy
-        :type http: str
-        :param https: the https proxy (default to the same as http)
-        :type https: str
-        :returns: whether or not the proxy was set up successfully
-        :rtype: {bool}
-        """
-
-        proxies = {'http://': http, 'https://': https}
-        if self.proxy_mode == ProxyMode.SCRAPERAPI:
-            r = requests.get("http://api.scraperapi.com/account", params={'api_key': self._API_KEY}).json()
-            if "error" in r:
-                self.logger.warning(r["error"])
-                self._proxy_works = False
-            else:
-                self._proxy_works = r["requestCount"] < int(r["requestLimit"])
-                self.logger.info("Successful ScraperAPI requests %d / %d",
-                                 r["requestCount"], r["requestLimit"])
-        else:
-            self._proxy_works = self._check_proxy(proxies)
-
-        self._proxies = proxies
-        self._new_session(proxies=proxies)
-
-        return self._proxy_works
 
     @deprecated(version='1.5', reason="Tor methods are deprecated and are not actively tested.")
     def Tor_External(self, tor_sock_port: int, tor_control_port: int, tor_password: str):
@@ -445,7 +449,7 @@ class ProxyGenerator(object):
         return self._session
 
     def _new_session(self, **kwargs):
-        init_kwargs = {"follow_redirects": True}
+        init_kwargs = {"follow_redirects": True, "verify": True}
         init_kwargs.update(kwargs)
         proxies = {}
         if self._session:
@@ -481,7 +485,10 @@ class ProxyGenerator(object):
         init_kwargs.update(mounts=mounts)
         pr = temp_proxies['http://'] if mounts else None
 
-        self._session = httpx.Client(follow_redirects=True, proxy=pr, verify=True, headers=_HEADERS)
+        print(pr)
+        print(init_kwargs['verify'])
+
+        self._session = httpx.Client(follow_redirects=True, proxy=pr, verify=init_kwargs['verify'], headers=_HEADERS)
         self._webdriver = None
 
         return self._session
