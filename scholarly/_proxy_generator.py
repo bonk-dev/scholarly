@@ -638,26 +638,7 @@ class ProxyGenerator(object):
         return True
 
     def get_next_proxy(self, num_tries = None, old_timeout = 3, old_proxy=None):
-        new_timeout = old_timeout
-        if self._can_refresh_tor:
-            # Check if Tor is running and refresh it
-            self.logger.info("Refreshing Tor ID...")
-            self._refresh_tor_id(self._tor_control_port, self._tor_password)
-            time.sleep(5) # wait for the refresh to happen
-            new_timeout = self._TIMEOUT # Reset timeout to default
-        elif self._proxy_gen:
-            if (num_tries):
-                self.logger.info("Try #%d failed. Switching proxy.", num_tries)
-            # Try to get another proxy
-            new_proxy = self._proxy_gen(old_proxy)
-            while (not self._use_proxy(new_proxy)):
-                new_proxy = self._proxy_gen(new_proxy)
-            new_timeout = self._TIMEOUT # Reset timeout to default
-            self._new_session()
-        else:
-            self._new_session()
-
-        return self._session, new_timeout
+        return self._session
 
     # A context manager to suppress the misleading traceback from UserAgent()
     # Based on https://thesmithfam.org/blog/2012/10/25/temporarily-suppress-console-output-in-python/
