@@ -203,9 +203,8 @@ class ProxyGenerator(object):
         else:
             self._proxy_works = self._check_proxy(proxies)
 
-        if self._proxy_works:
-            self._proxies = proxies
-            self._new_session(proxies=proxies)
+        self._proxies = proxies
+        self._new_session(proxies=proxies)
 
         return self._proxy_works
 
